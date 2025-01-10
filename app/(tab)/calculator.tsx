@@ -1,6 +1,8 @@
 import {Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View} from "react-native";
 import asyncStorage from "@react-native-async-storage/async-storage/src/AsyncStorage";
 import {useEffect, useState} from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import BodyFatChart from "@/app/components/BodyFatChart";
 
 export default function Calculator() {
     const [data, setData] = useState(null);
@@ -8,6 +10,8 @@ export default function Calculator() {
     const [bodyFat, setBodyFat] = useState(null);
     const [waistSize, setWaistSize] = useState('');
     const [neckSize, setNeckSize] = useState('');
+    const [bodyFatHistory, setBodyFatHistory] = useState([]);
+
 
     const fetchUserData = async () => {
         try {
@@ -34,7 +38,6 @@ export default function Calculator() {
         try {
             await asyncStorage.setItem('user', JSON.stringify(updatedData));
             setData(updatedData);
-            Alert.alert("Success", 'Data Updated Successfully');
         } catch (error) {
             Alert.alert('Error', 'Failed To Update User Data');
         }
@@ -61,10 +64,6 @@ export default function Calculator() {
    }, [data]);
 
 
-    useEffect(() => {
-        fetchUserData();
-    }, []);
-
 
     useEffect(() => {
         const countBmi = async () => {
@@ -85,7 +84,33 @@ export default function Calculator() {
         countBmi();
     }, [data]);
 
+    useEffect(() => {
+        const fetchBodyFatHistory = async () => {
+            try {
+                const history = await AsyncStorage.getItem('bodyFatHistory');
+                if (history) {
+                    setBodyFatHistory(JSON.parse(history));
+                }
+            } catch (error) {
+                console.error('Failed to fetch body fat history:', error);
+            }
+        };
+        fetchBodyFatHistory();
+    }, []);
 
+    const saveBodyFat = async () => {
+        if (bodyFat) {
+            const newHistory = [...bodyFatHistory, { date: new Date().toISOString(), value: parseFloat(bodyFat) }];
+            try {
+                await AsyncStorage.setItem('bodyFatHistory', JSON.stringify(newHistory));
+                setBodyFatHistory(newHistory);
+            } catch (error) {
+                Alert.alert('Error', 'Failed to save body fat percentage');
+            }
+        } else {
+            Alert.alert('Error', 'No body fat percentage to save');
+        }
+    };
 
     return (
         <ScrollView>
@@ -112,9 +137,13 @@ export default function Calculator() {
             <View style={styles.container}>
                 <Text style={styles.bmiTitle}>Body Fat</Text>
                 <Text style={styles.results}>{bodyFat}%</Text>
-                <TouchableOpacity style={styles.button}>
+                <TouchableOpacity style={styles.button} onPress={saveBodyFat}>
                     <Text style={styles.buttonText}>Save</Text>
                 </TouchableOpacity>
+            </View>
+            <View style={styles.container}>
+                <Text style={styles.bmiTitle}>Body Fat Chart</Text>
+                <BodyFatChart data={bodyFatHistory} />
             </View>
         </ScrollView>
     );
